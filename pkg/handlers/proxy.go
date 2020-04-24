@@ -1,6 +1,10 @@
 package handlers
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -20,8 +24,25 @@ func NewProxyService(backendServerAddr string) (*ProxyService, error) {
 	if err != nil {
 		return nil, err
 	}
+	p := httputil.NewSingleHostReverseProxy(target)
+	cp := x509.NewCertPool()
+	content,err := ioutil.ReadFile("./ca.crt")
+	if err != nil {
+		return nil,err
+	}
+	ok := cp.AppendCertsFromPEM(content)
+	if !ok {
+		return nil,errors.New("append certs from pen error")
+	}
+
+	p.Transport = &http.Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs: cp,
+			//InsecureSkipVerify: true,
+		},
+	}
 	return &ProxyService{
-		proxy:  httputil.NewSingleHostReverseProxy(target),
+		proxy:  p,
 		target: target,
 	}, nil
 }
